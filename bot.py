@@ -3,6 +3,7 @@ when rain starts / is coming soon, and when it stops."""
 import datetime as dt
 import json
 import os
+import time
 import urllib.parse
 import urllib.request
 from zoneinfo import ZoneInfo
@@ -19,9 +20,16 @@ STATE_FILE = "state.json"
 TEST = os.getenv("TEST") == "true"
 
 
-def http_json(url, data=None):
-    with urllib.request.urlopen(url, data=data, timeout=20) as r:
-        return json.load(r)
+def http_json(url, data=None, attempts=4):
+    for i in range(attempts):
+        try:
+            with urllib.request.urlopen(url, data=data, timeout=40) as r:
+                return json.load(r)
+        except OSError as e:  # network hiccup: wait and retry
+            if i == attempts - 1:
+                raise
+            print(f"retry {i + 1}: {e}")
+            time.sleep(10 * (i + 1))
 
 
 def send(text):
