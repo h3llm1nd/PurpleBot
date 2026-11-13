@@ -1,0 +1,41 @@
+name: PurpleRain
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # every 15 minutes
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Send a test message"
+        type: boolean
+        default: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: purplerain-state-${{ github.run_id }}
+          restore-keys: purplerain-state-
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: python bot.py
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          LAT: ${{ secrets.LAT }}
+          LON: ${{ secrets.LON }}
+          TEST: ${{ github.event.inputs.test }}
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: state.json
+          key: purplerain-state-${{ github.run_id }}
