@@ -71,9 +71,9 @@ def main():
     soon = next((t for t, p in future if p >= THRESHOLD), None)
 
     if TEST:
-        status = "идёт дождь" if rain_now else (
-            f"дождь ожидается около {soon:%H:%M}" if soon else "в ближайший час сухо")
-        send(f"💜 PurpleRain на связи! Сейчас: {status}.")
+        status = "it's raining" if rain_now else (
+            f"rain expected around {soon:%H:%M}" if soon else "dry for the next hour")
+        send(f"💜 PurpleRain is online! Right now: {status}.")
         return
 
     quiet = now.hour >= QUIET_FROM or now.hour < QUIET_TO
@@ -83,12 +83,12 @@ def main():
     state = load_state()
     if (rain_now or soon) and not state["alerted"]:
         if rain_now:
-            send("💜🌧 PurpleRain: на улице идёт дождь! Зонт и дождевик для собаки не забудьте.")
+            send("💜🌧 PurpleRain: it's raining outside! Grab an umbrella and the dog's raincoat.")
         else:
-            send(f"💜☔ PurpleRain: около {soon:%H:%M} начнётся дождь. Хотите гулять — выходите сейчас или переждите.")
+            send(f"💜☔ PurpleRain: rain expected around {soon:%H:%M}. Want a walk? Go now or wait it out.")
         state["alerted"] = True
     elif not rain_now and not soon and state["alerted"]:
-        send("💜🌤 PurpleRain: дождь закончился, можно идти гулять!")
+        send("💜🌤 PurpleRain: the rain has stopped. Time for a walk!")
         state["alerted"] = False
     save_state(state)
 
