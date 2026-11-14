@@ -1,4 +1,4 @@
-"""Rain bot: checks Open-Meteo every run and posts to a Telegram chat
+"""Rain bot: checks Open-Meteo (backup: MET Norway) every run and posts to a Telegram chat
 when rain starts / is coming soon, and when it stops."""
 import datetime as dt
 import json
@@ -20,16 +20,17 @@ STATE_FILE = "state.json"
 TEST = os.getenv("TEST") == "true"
 
 
-def http_json(url, data=None, attempts=4):
+def http_json(url, data=None, attempts=3, timeout=25, headers=None):
+    req = urllib.request.Request(url, data=data, headers=headers or {})
     for i in range(attempts):
         try:
-            with urllib.request.urlopen(url, data=data, timeout=40) as r:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
                 return json.load(r)
         except OSError as e:  # network hiccup: wait and retry
             if i == attempts - 1:
                 raise
             print(f"retry {i + 1}: {e}")
-            time.sleep(10 * (i + 1))
+            time.sleep(5 * (i + 1))
 
 
 def send(text):
@@ -50,7 +51,7 @@ def save_state(state):
         json.dump(state, f)
 
 
-def forecast():
+def forecast_open_meteo():
     q = urllib.parse.urlencode({
         "latitude": LAT, "longitude": LON,
         "minutely_15": "precipitation",
@@ -62,9 +63,38 @@ def forecast():
             for t, p in zip(m["time"], m["precipitation"])]
 
 
+def forecast_met_norway():
+    """Backup source (MET Norway, hourly). Spread each hour over 4 slots."""
+    q = urllib.parse.urlencode({"lat": round(float(LAT), 4), "lon": round(float(LON), 4)})
+    data = http_json(
+        f"https://api.met.no/weatherapi/locationforecast/2.0/compact?{q}",
+        headers={"User-Agent": "PurpleRain-bot github.com/h3llm1nd/PurpleBot"})
+    slots = []
+    for item in data["properties"]["timeseries"][:3]:
+        start = dt.datetime.fromisoformat(item["time"].replace("Z", "+00:00")).astimezone(TZ)
+        amount = (item["data"].get("next_1_hours", {}).get("details", {})
+                  .get("precipitation_amount", 0.0)) / 4
+        slots += [(start + dt.timedelta(minutes=15 * (k + 1)), amount) for k in range(4)]
+    return slots
+
+
+def forecast():
+    for source in (forecast_open_meteo, forecast_met_norway):
+        try:
+            return source()
+        except Exception as e:  # try the next weather service
+            print(f"{source.__name__} failed: {e}")
+    return None
+
+
 def main():
     now = dt.datetime.now(TZ)
     slots = forecast()
+    if slots is None:
+        print("All weather services are unreachable, skipping this check.")
+        if TEST:
+            send("💜 PurpleRain is online! (Weather services didn't answer this time, will retry in 15 min.)")
+        return
     past = [p for t, p in slots if t <= now]
     future = [(t, p) for t, p in slots if t > now][:4]   # next ~hour
     rain_now = bool(past) and past[-1] >= THRESHOLD
