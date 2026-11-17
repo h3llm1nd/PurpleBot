@@ -1,14 +1,17 @@
 name: PurpleRain
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"   # every 15 minutes
+  # started every 15 minutes by cron-job.org (GitHub's own schedule was too unreliable)
   workflow_dispatch:
     inputs:
       test:
         description: "Send a test message"
         type: boolean
         default: true
+
+concurrency:
+  group: purplerain
+  cancel-in-progress: false
 
 jobs:
   check:
