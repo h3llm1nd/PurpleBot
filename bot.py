@@ -189,6 +189,31 @@ def walk_tips(w, aqi):
     return tips or ["🐾 Great weather for a walk!"]
 
 
+def what_to_wear(w):
+    f = w["feels"]
+    if f >= 24:
+        outfit = ["T-shirt", "shorts", "cap"]
+    elif f >= 17:
+        outfit = ["T-shirt or light long sleeve"]
+    elif f >= 10:
+        outfit = ["hoodie or light jacket"]
+    elif f >= 3:
+        outfit = ["warm jacket", "light hat"]
+    elif f >= -7:
+        outfit = ["winter jacket", "hat", "gloves", "scarf"]
+    else:
+        outfit = ["thermal layer", "winter jacket", "warm hat", "gloves", "scarf"]
+    if w["rain_at"]:
+        outfit.append("umbrella or raincoat")
+    if w["snow"] or (w["temp"] <= 1 and w["rain_at"]):
+        outfit.append("non-slip winter boots")
+    elif w["rain_at"]:
+        outfit.append("waterproof shoes")
+    if (w["gusts"] or w["wind"]) >= 40 and f < 17:
+        outfit.append("something windproof")
+    return ", ".join(outfit)
+
+
 def walk_summary(title):
     w = walk_weather()
     if w is None:
@@ -208,6 +233,7 @@ def walk_summary(title):
     ]
     if aqi is not None:
         lines.append(f"🌫 Air: {aqi_label(aqi)} (AQI {aqi})")
+    lines.append(f"👕 Wear: {what_to_wear(w)}")
     lines.append("")
     lines += walk_tips(w, aqi)
     return "\n".join(lines)
